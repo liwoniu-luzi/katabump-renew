@@ -45,7 +45,7 @@
   - 你可以在 Workflow 运行详情页的 **Artifacts** 区域下载 `screenshots` 压缩包。
   - 每个账号对应一张截图（`username.png`），方便确认状态。
 
-5. 保存后，进入 **Actions** 页面，启用 Workflow。它会在每隔3天运行一次 北京时间 10:00 (UTC 02:00)，可在工作流文件 [renew.yml](./main/.github/workflows/renew.yml) 中修改运行时间
+5. 保存后，进入 **Actions** 页面，启用 Workflow。它会在每隔3天运行一次 北京时间 10:00 (UTC 02:00)，可在工作流文件 [renew.yml](.github/workflows/renew.yml) 中修改运行时间
 6. 你也可以手动点击 "Run workflow" 立即测试。
 7. **随机延迟**: 定时任务触发时，脚本会随机延迟 0-3 小时后执行，防止被目标站识别为自动化。手动触发时不会有延迟，立即执行。
 
