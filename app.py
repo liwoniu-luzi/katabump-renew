@@ -37,7 +37,7 @@ def send_tg_message(status_icon, status_text, time_left=""):
         masked_email = EMAIL[:2] + '****'
 
     text = (
-        f"katabump 续期通知\n\n"
+        f"🇫🇷 katabump 续期通知\n\n"
         f"{status_icon} {status_text}\n"
         f"👤 续期账户: {masked_email}\n"
         f"⏱️ 续期时间: {current_time_str}"
