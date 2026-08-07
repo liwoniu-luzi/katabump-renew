@@ -442,7 +442,21 @@ def _open_renew_modal(sb) -> bool:
             sb.save_screenshot("renew_button_missing.png")
             send_tg_alert("❌", "未找到 Renew 按钮", photo_path="renew_button_missing.png")
             return False
-    sb.execute_script("arguments[0].scrollIntoView({behavior:'smooth',block:'center'});", renew_btn)
+
+    # 修复：不使用 arguments[0] 传递元素，直接用选择器滚动
+    try:
+        sb.execute_script(
+            'document.querySelector(\'button[data-bs-target="#renew-modal"]\').scrollIntoView({behavior:"smooth",block:"center"});'
+        )
+    except:
+        # 如果上面的选择器失败，尝试备用选择器
+        try:
+            sb.execute_script(
+                'document.querySelector(\'button.btn.btn-outline-primary\').scrollIntoView({behavior:"smooth",block:"center"});'
+            )
+        except:
+            pass  # 滚动失败不致命
+
     time.sleep(0.8)
     renew_btn.click()
     time.sleep(3)
@@ -591,7 +605,6 @@ def main():
                 login_ok = True
             else:
                 print("\n❌ 登录失败，终止操作")
-                # 登录函数内部已发送通知和截图，这里可以不再重复
                 return
 
         # 3. 执行续期
