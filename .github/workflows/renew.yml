@@ -2,7 +2,7 @@ name: Katabump Auto Renew
 
 on:
   schedule:
-  - cron: '0 2 */1 * *'  # 每天 UTC 0点 (北京时间 8点) 运行,根据服务到期时间自行修改
+    - cron: '0 2 */1 * *'  # 每天 UTC 2点 (北京时间 10点) 运行
   workflow_dispatch: # 允许手动触发
 
 jobs:
@@ -13,9 +13,10 @@ jobs:
       contents: read
     
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
+
     - name: ⚙ 设置 Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
@@ -26,12 +27,11 @@ jobs:
         pip install seleniumbase requests
         seleniumbase install chromedriver
 
-    - name: ⚙ 设置代理 (sing-box)
-      continue-on-error: true
+    - name: ⚙ 设置代理 (Hysteria 1)
       env:
         NODE_LINK: ${{ secrets.NODE_LINK }}
       run: |
-        bash <(wget -qO- https://main.ssss.nyc.mn/setup_proxy.sh)
+        bash .github/scripts/setup_proxy.sh
 
     - name: 🚀 运行续期脚本
       env:
