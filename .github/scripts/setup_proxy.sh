@@ -1,7 +1,6 @@
 #!/bin/bash
 # setup_proxy.sh - Setup Hysteria 1 proxy for GitHub Actions
 # If proxy setup fails, fall back to direct connection
-set -e
 
 # Read node link from environment
 NODE_LINK=${NODE_LINK:-}
@@ -111,25 +110,35 @@ OBFS_PARAM=""
 PEER=""
 INSECURE=0
 
-# Parse query parameters
-parse_query() {
-  local key="$1"
-  local value=$(echo "$QUERY" | grep -o "${key}=[^&]*" | cut -d= -f2)
-  echo "$value"
-}
-
+# Parse query parameters (inline function without local keyword)
 if [ -n "$QUERY" ]; then
-  PROTOCOL=$(parse_query "protocol")
-  [ -z "$PROTOCOL" ] && PROTOCOL="udp"
-  UP_MBPS=$(parse_query "upmbps")
-  [ -z "$UP_MBPS" ] && UP_MBPS=100
-  DOWN_MBPS=$(parse_query "downmbps")
-  [ -z "$DOWN_MBPS" ] && DOWN_MBPS=100
-  OBFS=$(parse_query "obfs")
-  OBFS_PARAM=$(parse_query "obfsParam")
-  PEER=$(parse_query "peer")
-  INSECURE=$(parse_query "insecure")
-  [ -z "$INSECURE" ] && INSECURE=0
+  # protocol
+  TEMP_VAL=$(echo "$QUERY" | grep -o 'protocol=[^&]*' | cut -d= -f2)
+  [ -n "$TEMP_VAL" ] && PROTOCOL="$TEMP_VAL"
+  
+  # upmbps
+  TEMP_VAL=$(echo "$QUERY" | grep -o 'upmbps=[^&]*' | cut -d= -f2)
+  [ -n "$TEMP_VAL" ] && UP_MBPS="$TEMP_VAL"
+  
+  # downmbps
+  TEMP_VAL=$(echo "$QUERY" | grep -o 'downmbps=[^&]*' | cut -d= -f2)
+  [ -n "$TEMP_VAL" ] && DOWN_MBPS="$TEMP_VAL"
+  
+  # obfs
+  TEMP_VAL=$(echo "$QUERY" | grep -o 'obfs=[^&]*' | cut -d= -f2)
+  [ -n "$TEMP_VAL" ] && OBFS="$TEMP_VAL"
+  
+  # obfsParam
+  TEMP_VAL=$(echo "$QUERY" | grep -o 'obfsParam=[^&]*' | cut -d= -f2)
+  [ -n "$TEMP_VAL" ] && OBFS_PARAM="$TEMP_VAL"
+  
+  # peer
+  TEMP_VAL=$(echo "$QUERY" | grep -o 'peer=[^&]*' | cut -d= -f2)
+  [ -n "$TEMP_VAL" ] && PEER="$TEMP_VAL"
+  
+  # insecure
+  TEMP_VAL=$(echo "$QUERY" | grep -o 'insecure=[^&]*' | cut -d= -f2)
+  [ -n "$TEMP_VAL" ] && INSECURE="$TEMP_VAL"
 fi
 
 # If peer is empty, use server
@@ -173,59 +182,4 @@ else
   echo "PROXY_SERVER=" >> $GITHUB_ENV
   # Kill hysteria process
   pkill -f hysteria 2>/dev/null || true
-fi  local value=$(echo "$QUERY" | grep -o "${key}=[^&]*" | cut -d= -f2)
-  echo "$value"
-}
-
-if [ -n "$QUERY" ]; then
-  PROTOCOL=$(parse_query "protocol" || echo "udp")
-  [ -z "$PROTOCOL" ] && PROTOCOL="udp"
-  UP_MBPS=$(parse_query "upmbps" || echo "100")
-  [ -z "$UP_MBPS" ] && UP_MBPS=100
-  DOWN_MBPS=$(parse_query "downmbps" || echo "100")
-  [ -z "$DOWN_MBPS" ] && DOWN_MBPS=100
-  OBFS=$(parse_query "obfs" || echo "")
-  OBFS_PARAM=$(parse_query "obfsParam" || echo "")
-  PEER=$(parse_query "peer" || echo "")
-  INSECURE=$(parse_query "insecure" || echo "0")
-fi
-
-# If peer is empty, use server
-[ -z "$PEER" ] && PEER="$SERVER"
-
-# Generate Hysteria client JSON config
-CONFIG_FILE="hysteria-client.json"
-cat > "$CONFIG_FILE" <<EOF
-{
-  "server": "${SERVER}:${PORT}",
-  "protocol": "${PROTOCOL}",
-  "up_mbps": ${UP_MBPS},
-  "down_mbps": ${DOWN_MBPS},
-  "socks5": {
-    "listen": "127.0.0.1:1080"
-  },
-  "auth_str": "${AUTH}",
-  "insecure": $([ "$INSECURE" = "1" ] || [ "$INSECURE" = "true" ] && echo true || echo false),
-  "obfs": "${OBFS}",
-  "obfs_param": "${OBFS_PARAM}",
-  "peer": "${PEER}"
-}
-EOF
-
-# Start Hysteria client
-echo "[INFO] Starting Hysteria client..."
-nohup ./hysteria -c "$CONFIG_FILE" client > hysteria.log 2>&1 &
-sleep 5
-
-# Test proxy
-echo "[INFO] Testing SOCKS5 proxy at 127.0.0.1:1080..."
-if curl -x socks5h://127.0.0.1:1080 -s --max-time 15 https://api.ipify.org > /dev/null 2>&1; then
-  echo "[INFO] Proxy connection successful"
-  echo "IS_PROXY=true" >> $GITHUB_ENV
-  echo "PROXY_SERVER=socks5://127.0.0.1:1080" >> $GITHUB_ENV
-else
-  echo "[ERROR] Proxy connection failed"
-  echo "---- Hysteria log ----"
-  cat hysteria.log
-  exit 1
 fi
