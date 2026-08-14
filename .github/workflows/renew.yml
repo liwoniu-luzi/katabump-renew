@@ -1,59 +1,95 @@
-name: Katabump Auto Renew
+name: Auto Renew Bot-hosting
 
 on:
   schedule:
-    - cron: '0 2 */1 * *'  # 每天 UTC 2点 (北京时间 10点) 运行
-  workflow_dispatch: # 允许手动触发
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: auto-renew-bot
+  cancel-in-progress: false
 
 jobs:
-  Renew-Katabump:
+  Renew-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
-      actions: write  
+      actions: write
       contents: read
-    
+
     steps:
-    - uses: actions/checkout@v4
+      - name: 🔄 检出仓库
+        uses: actions/checkout@v4
 
-    - name: ⚙ 设置 Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+      - name: ⚙ 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-    - name: 🛠️ 安装系统依赖和python依赖
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y xvfb x11-utils xdotool scrot fonts-noto-cjk
-        pip install seleniumbase requests
-        seleniumbase install chromedriver
+      - name: 💾 缓存 Python 依赖
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-seleniumbase-4.30.0
+          restore-keys: |
+            ${{ runner.os }}-pip-seleniumbase-
 
-    - name: ⚙ 设置代理 (Hysteria 1)
-      env:
-        NODE_LINK: ${{ secrets.NODE_LINK }}
-      run: |
-        bash .github/scripts/setup_proxy.sh
+      - name: 🛠️ 安装系统依赖和 Python 依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb x11-utils xdotool scrot fonts-noto-cjk jq
+          pip install seleniumbase==4.30.0
+          seleniumbase install chromedriver
 
-    - name: 🚀 运行续期脚本
-      env:
-        KATABUMP_EMAIL: ${{ secrets.KATABUMP_EMAIL }}
-        KATABUMP_PASSWORD: ${{ secrets.KATABUMP_PASSWORD }}
-        TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-        TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-      run: |
-        xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+      - name: ⚙ 设置代理 (Hysteria 1)
+        env:
+          NODE_LINK: ${{ secrets.NODE_LINK }}
+        run: |
+          bash .github/scripts/setup_proxy.sh
+
+      - name: 🚀 运行续期脚本
+        env:
+          EMAIL: ${{ secrets.EMAIL }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          SESSION_TOKEN: ${{ secrets.SESSION_TOKEN }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          # 启动 Xvfb，添加 -ac 参数
+          Xvfb :99 -screen 0 1920x1080x24 -ac &
+          export DISPLAY=:99.0
+          # 等待 Xvfb 就绪
+          for i in {1..10}; do
+            if xset -display :99.0 q >/dev/null 2>&1; then
+              echo "✅ Xvfb is ready"
+              break
+            fi
+            echo "⏳ Waiting for Xvfb..."
+            sleep 1
+          done
           python3 app.py
-        
-    - name: 🧹 清理旧的工作流运行记录
-      if: always()
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        runs=$(gh run list --workflow="${{ github.workflow }}" --limit=100 --json databaseId --jq '.[].databaseId')
-        count=0
-        for run_id in $runs; do
-          count=$((count + 1))
-          if [ $count -gt 1 ]; then
-            echo "删除运行记录: $run_id"
-            gh run delete $run_id || true
-          fi
-        done
+
+      - name: 🧽 清理进程和临时文件
+        if: always()
+        run: |
+          pkill -f hysteria || true
+          pkill -f chromedriver || true
+          pkill -f chrome || true
+          pkill -f Xvfb || true
+          rm -f hysteria hysteria-client.json hysteria.log
+
+      - name: 🧹 清理旧的工作流运行记录
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs=$(gh run list --workflow="${{ github.workflow }}" --limit=100 --json databaseId --jq '.[].databaseId')
+          count=0
+          for run_id in $runs; do
+            count=$((count + 1))
+            if [ $count -gt 5 ]; then
+              echo "删除运行记录: $run_id"
+              gh run delete $run_id || true
+            fi
+          done
