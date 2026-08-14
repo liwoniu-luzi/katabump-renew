@@ -56,4 +56,4 @@ jobs:
             echo "删除运行记录: $run_id"
             gh run delete $run_id || true
           fi
-        done          解析对比
+        done 
