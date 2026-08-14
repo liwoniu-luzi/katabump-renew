@@ -71,8 +71,15 @@ else
     HOST="$HOST_PORT"
 fi
 
+# ===== FIX: Remove trailing slash from HOST =====
+HOST="${HOST%/}"
+
 SERVER="${HOST%:*}"
 PORT="${HOST#*:}"
+
+# ===== FIX: Handle port with trailing slash =====
+PORT="${PORT%/}"
+
 if [ -z "$SERVER" ] || [ -z "$PORT" ]; then
     echo "[WARN] Failed to parse server address, falling back to direct connection"
     echo "IS_PROXY=false" >> $GITHUB_ENV
@@ -144,6 +151,10 @@ cat > "$CONFIG_FILE" <<EOF
   "alpn": "${ALPN}"
 }
 EOF
+
+# ===== DEBUG: Show config (remove in production) =====
+echo "[INFO] Generated config:"
+cat "$CONFIG_FILE"
 
 # Start Hysteria client
 echo "[INFO] Starting Hysteria client..."
